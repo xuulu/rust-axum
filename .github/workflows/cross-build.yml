@@ -6,8 +6,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:     # 支持手动触发
-  schedule:
-    - cron: '0 2 * * *'  # 每天 UTC 时间 2:00 AM
 
 env:
   CARGO_TERM_COLOR: always  # 让 cargo 输出彩色日志（可选）
@@ -44,7 +42,7 @@ jobs:
       with:
         name: axum-binary-${{ matrix.target }}
         path: |
-          target/${{ matrix.target }}/release/your_binary_name  # 替换为你的二进制名
+          target/${{ matrix.target }}/release/xuul  # 替换为你的二进制名
           # 如果需要额外文件（如配置文件），可以在这里添加
           # config/
 
