@@ -1,0 +1,51 @@
+[package]
+name = "xuul"
+version = "0.1.0"
+edition = "2024"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 8
+strip = true
+debug = false
+
+[dependencies]
+# web框架 派生宏+json(Json<T>)
+axum = { version = "0.8.4", features = ["macros"]}
+# 异步框架
+tokio = { version = "1", features = ["full"] }
+#中间件框架
+tower-http = { version = "0.6.6", features = ["cors"] }
+# 时间
+chrono="0.4.41"
+# 日志
+tracing = { version = "0.1.14",features = ["async-await"] }
+tracing-subscriber = { version = "0.3.19",features = ["env-filter","chrono"] }
+tracing-appender = "0.2.3"
+# 环境变量读取
+dotenvy = "0.15.7"
+# JSON 核心框架 + 派生宏
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.140"
+# ORM
+sea-orm= { version = "1.1.11",features = ["debug-print","sqlx-postgres","with-rust_decimal","runtime-tokio"] }
+# 网络请求
+reqwest = { version = "0.12.15", features = ["json"] }
+# 错误处理
+thiserror="2.0.12"
+anyhow="1.0.98"
+# html解析
+scraper="0.23.1"
+# 百分比解码（处理 %20 等编码字符）
+percent-encoding= "2.3.1"
+# 随机数生成
+rand="0.9.1"
+# redis 异步连接池管理
+redis={ version = "0.31.0", features = ["tokio-comp"] }
+deadpool-redis = { version = "0.21.1",features = ["tokio-comp"] }
+
+# 编码/解码/加密
+md5="0.7.0"
+sha2="0.10.9"
+
