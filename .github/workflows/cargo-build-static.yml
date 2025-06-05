@@ -1,0 +1,43 @@
+name: Cargo Build Static
+
+on:
+  push:
+    branches: [ main ]   # 推送到 main 分支时触发
+  workflow_dispatch:     # 支持手动触发
+
+env:
+  CARGO_TERM_COLOR: always  # 彩色日志输出
+  BINARY_NAME: "xuul"       # 替换为你的二进制名称（与 Cargo.toml 一致）
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30     # 避免长时间任务被取消
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Rust
+      uses: actions/setup-rust@v3
+      with:
+        rust-version: stable
+        targets: x86_64-unknown-linux-musl  # 预安装 musl 目标
+
+    - name: Install musl-tools
+      run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+    - name: Build static binary
+      run: cargo build --release --target x86_64-unknown-linux-musl
+
+    - name: Verify binary
+      run: |
+        echo "生成的二进制文件："
+        ls -lh target/x86_64-unknown-linux-musl/release/
+        file target/x86_64-unknown-linux-musl/release/${{ env.BINARY_NAME }}
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: static-binary
+        path: target/x86_64-unknown-linux-musl/release/${{ env.BINARY_NAME }}
