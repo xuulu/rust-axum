@@ -1,4 +1,4 @@
-name: Static Build
+name: Build and Upload
 
 on:
   push:
@@ -13,23 +13,23 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Install Rust
+    - name: Setup Rust
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         override: true
 
-    - name: Add musl target
+    - name: Add MUSL target
       run: rustup target add x86_64-unknown-linux-musl
 
-    - name: Install musl tools
+    - name: Install musl-tools
       run: sudo apt-get update && sudo apt-get install -y musl-tools
 
-    - name: Build
+    - name: Build (static)
       run: cargo build --release --target x86_64-unknown-linux-musl
 
-    - name: Upload binary
-      uses: actions/upload-artifact@v3
+    - name: Upload Binary
+      uses: actions/upload-artifact@v2
       with:
-        name: binary
+        name: axum-binary
         path: target/x86_64-unknown-linux-musl/release/xuul
