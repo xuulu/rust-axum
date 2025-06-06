@@ -1,7 +1,7 @@
-name: CI for Rust + Axum（Windows & Linux 打包）
+name: CI for Rust + Axum（Windows & Linux 打包，使用 upload-artifact@v4）
 
 # 触发条件：
-# 1. push 到任意分支  → build job（编译并上传 artifact）
+# 1. push 到任意分支  → build job（编译并上传 Artifact）
 # 2. 任何 pull_request  → build job
 # 3. push 一个符合 SemVer（v1.2.3）格式的 tag → release job
 # 4. 在 GitHub UI 上点击 “Draft a new release” 并发布 → release job
@@ -25,7 +25,6 @@ jobs:
   # ===================================================================
   build:
     name: Build & Upload Artifacts
-    # 使用 matrix 在两个 runner 上并行执行
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -64,11 +63,60 @@ jobs:
       - name: Build (release)
         run: cargo build --release
 
-      # 5. 上传编译产物作为 artifact
+      # 5. 上传编译产物作为 Artifact（注意：使用 actions/upload-artifact@v4）
       - name: Upload Release Binary as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # 已升级到 v4 版本，v3 会失败  [oai_citation:2‡github.blog](https://github.blog/changelog/2024-04-16-deprecation-notice-v3-of-the-artifact-actions/?utm_source=chatgpt.com)
         with:
-          # Artifact 名称里加上操作系统标识，方便区分
           name: axum-app-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ matrix.os == 'windows-latest' && 'target\\release\\xuul.exe' || 'target/release/xuul' }}
+
+  # ===================================================================
+  # 二、release：在打 Tag（refs/tags/v*.*.*）或发布 Release 时，
+  #     分别在 Linux 和 Windows 平台上再次编译并把二进制附加到 GitHub Release
+  # ===================================================================
+  release:
+    name: Publish to GitHub Release
+    needs: build
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'release')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      # 1. 检出源码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 安装 Rust toolchain
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      # 3. 编译 Release 二进制（再次编译，保证最新产物）
+      - name: Build Release Binary
+        run: cargo build --release
+
+      # 4. 提取 Tag 名称（v1.2.3）
+      - name: Determine Release Tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG_NAME=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      # 5. 把对应平台的可执行附加到 GitHub Release（仍然使用 v4 版本）
+      - name: Upload Binary to GitHub Release
+        uses: actions/upload-artifact@v4  # release 时可复用 v4，也不会失败  [oai_citation:3‡github.com](https://github.com/actions/upload-artifact?utm_source=chatgpt.com) [oai_citation:4‡github.com](https://github.com/marketplace/actions/upload-a-build-artifact?utm_source=chatgpt.com)
+        with:
+          name: Release-${{ steps.vars.outputs.TAG_NAME }}-${{ matrix.os }}
           path: |
             ${{ matrix.os == 'windows-latest' && 'target\\release\\xuul.exe' || 'target/release/xuul' }}
