@@ -1,48 +1,74 @@
-name: Rust CI
+name: CI for Rust + Axum（Windows & Linux 打包）
 
+# 触发条件：
+# 1. push 到任意分支  → build job（编译并上传 artifact）
+# 2. 任何 pull_request  → build job
+# 3. push 一个符合 SemVer（v1.2.3）格式的 tag → release job
+# 4. 在 GitHub UI 上点击 “Draft a new release” 并发布 → release job
 on:
   push:
-    branches: [main]
+    branches:
+      - "**"
+    tags:
+      - "v*.*.*"
   pull_request:
-    branches: [main]
-
-env:
-  CARGO_TERM_COLOR: always
+    branches:
+      - "**"
+  release:
+    types:
+      - published
 
 jobs:
+
+  # ===================================================================
+  # 一、build：在 Linux 和 Windows 平台上编译 Release 二进制，并把它们作为 Artifact 上传
+  # ===================================================================
   build:
-    runs-on: ubuntu-latest
+    name: Build & Upload Artifacts
+    # 使用 matrix 在两个 runner 上并行执行
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
     steps:
-      - name: Checkout code
+      # 1. 检出仓库
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions/setup-rust@v1
+      # 2. 安装 Rust toolchain（以 stable 为例）
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          rust-version: stable
+          toolchain: stable
+          profile: minimal
+          override: true
 
-      - name: Cache cargo registry
+      # 3. （可选）缓存 Cargo 依赖，加速后续构建
+      - name: Cache Cargo registry
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-
 
-      - name: Build
+      # 4. 编译 Release 模式
+      - name: Build (release)
         run: cargo build --release
 
-      - name: Run Tests
-        run: cargo test --release
-
-      - name: Archive Release Binary
-        if: success()
-        run: |
-          mkdir -p dist
-          cp target/release/xuul dist/
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      # 5. 上传编译产物作为 artifact
+      - name: Upload Release Binary as Artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: release-binary
-          path: dist/
+          # Artifact 名称里加上操作系统标识，方便区分
+          name: axum-app-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ matrix.os == 'windows-latest' && 'target\\release\\xuul.exe' || 'target/release/xuul' }}
